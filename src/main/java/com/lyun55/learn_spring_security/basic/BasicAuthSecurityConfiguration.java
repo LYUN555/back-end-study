@@ -6,25 +6,33 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
-//@Configuration
-public class BasicAuthSecurityConfiguration {
 
+@Configuration
+@EnableMethodSecurity(jsr250Enabled = true, securedEnabled = true)
+public class BasicAuthSecurityConfiguration {
+	
 	@Bean
 	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		
 		http.authorizeHttpRequests(
-									(auth) ->{
-										auth.anyRequest().authenticated();
-									});
-		//http.formLogin(withDefaults());
+						auth -> {
+							auth
+							.requestMatchers("/users").hasRole("USER")
+							.requestMatchers("/admin/**").hasRole("ADMIN")
+							.anyRequest().authenticated();
+						});
+		
 		http.sessionManagement(
 				session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 				);
@@ -35,18 +43,21 @@ public class BasicAuthSecurityConfiguration {
 		http.headers().frameOptions().sameOrigin();
 		return http.build();
 	}
+
 //	@Bean
-//	public UserDetailsService userDetailsService() {
+//	public UserDetailsService userDetailService() {
 //		
-//		UserDetails user = User.withUsername("lyun55")
-//			.password("{noop}1234")
+//		var user = User.withUsername("in28minutes")
+//			.password("{noop}dummy")
 //			.roles("USER")
 //			.build();
+//
 //		
-//		UserDetails admin = User.withUsername("admin")
-//				.password("{noop}1234")
-//				.roles("ADMIN") // <- ENUM 으로 만드는게 베스트
+//		var admin = User.withUsername("admin")
+//				.password("{noop}dummy")
+//				.roles("ADMIN")
 //				.build();
+//
 //		return new InMemoryUserDetailsManager(user, admin);
 //	}
 	
@@ -54,12 +65,12 @@ public class BasicAuthSecurityConfiguration {
 	public DataSource dataSource() {
 		return new EmbeddedDatabaseBuilder()
 				.setType(EmbeddedDatabaseType.H2)
-				.addScript(org.springframework.security.core.userdetails.jdbc.JdbcDaoImpl.DEFAULT_USER_SCHEMA_DDL_LOCATION)
+				.addScript(JdbcDaoImpl.DEFAULT_USER_SCHEMA_DDL_LOCATION)
 				.build();
 	}
 	
 	@Bean
-	public UserDetailsService userDetailsService(DataSource dataSource) {
+	public UserDetailsService userDetailService(DataSource dataSource) {
 		
 		UserDetails user = User.withUsername("lyun55")
 			//.password("{noop}1234")
@@ -72,12 +83,13 @@ public class BasicAuthSecurityConfiguration {
 				//.password("{noop}1234")
 				.password("1234")
 				.passwordEncoder(str -> passwordEncoder().encode(str))
-				.roles("ADMIN","USER") // <- ENUM 으로 만드는게 베스트
+				.roles("ADMIN", "USER")
 				.build();
+		
 		JdbcUserDetailsManager jdbcUserDetailsManager = new JdbcUserDetailsManager(dataSource);
 		jdbcUserDetailsManager.createUser(user);
 		jdbcUserDetailsManager.createUser(admin);
-		
+
 		return jdbcUserDetailsManager;
 	}
 	
@@ -85,4 +97,7 @@ public class BasicAuthSecurityConfiguration {
 	public BCryptPasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
 	}
+	
+
+	
 }
